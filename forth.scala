@@ -3,12 +3,12 @@ import scala.util.{Try, Success, Failure, Either}
 
 object Forth {
 
-  val dict = HashMap[String, (Int, Int) => Int]()
-  val stack = Stack[Int]()
+  val dict = Map[String, () => Any]()
+  var stack = Stack[Int]()
 
-  def main(args: Array[String]): Unit = {
-    dict += ("+" -> this.+, "-" -> this.-, "*" -> this.*, "/" -> this./)
-      // "p" -> this.p)
+  def main(args: Array[String]) {
+    dict += ("+" -> this.+_, "-" -> this.-_, "*" -> this.*_, "/" -> this./_,
+      "." -> this.print)
     repl()
   }
 
@@ -16,7 +16,7 @@ object Forth {
     var loop = true
     while (loop) {
       loop = Try(Console.readLine("forla> ")) match {
-        case Success("q") => false
+        case Success("bye") => false
         case Success(line) => interpret(line)
         case Failure(_) => false
       }
@@ -25,30 +25,32 @@ object Forth {
 
   def interpret(line: String): Boolean = {
     for (each <- line.split(" ")) {
-      dict.getOrElse(each, each) match {
-        case "p" => println(stack.mkString(" "))
-        case "bye" => return false
-        case func: ((Int, Int) => Int) => execute(func)
-        case _ => number(each)
+      dict.get(each) match {
+        case Some(func) => execute(func)
+        case None => number(each)
       }
     }
     true
   }
 
-  def execute(func: (Int, Int) => Int) {
-    stack.push(func(stack.pop(), stack.pop()))
+  def execute(func: () => Any) {
+    Try(func()) match {
+      case Success(_) => return
+      case Failure(e: NoSuchElementException) => println("Stack underflow")
+      case Failure(e) => println(s"Some other error: ${e.getMessage}")
+    }
   }
 
   def number(token: String) {
     Try(token.toInt) match {
       case Success(num) => stack.push(num)
-      case Failure(_) => println(s"${token}?")
+      case Failure(_) => println(s"${token} ?")
     }
   }
 
-  def +(x: Int, y: Int): Int = x + y
-  def -(x: Int, y: Int): Int = x - y
-  def *(x: Int, y: Int): Int = x * y
-  def /(x: Int, y: Int): Int = x / y
-  // def p() = println(stack)
+  def +() = stack.push(stack.pop() + stack.pop())
+  def -() = stack.push(stack.pop() - stack.pop())
+  def *() = stack.push(stack.pop() * stack.pop())
+  def /() = stack.push(stack.pop() / stack.pop())
+  def print() = println(stack.mkString(" "))
 }
